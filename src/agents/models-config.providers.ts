@@ -6,6 +6,7 @@ import {
 } from "../providers/github-copilot-token.js";
 import { ensureAuthProfileStore, listProfilesForProvider } from "./auth-profiles.js";
 import { discoverBedrockModels } from "./bedrock-discovery.js";
+import { discoverMapleModels, MAPLE_DEFAULT_BASE_URL } from "./maple-models.js";
 import { resolveAwsSdkEnvVarName, resolveEnvApiKey } from "./model-auth.js";
 import {
   buildSyntheticModelDefinition,
@@ -385,6 +386,15 @@ async function buildVeniceProvider(): Promise<ProviderConfig> {
   };
 }
 
+async function buildMapleProvider(params?: { apiKey?: string }): Promise<ProviderConfig> {
+  const models = await discoverMapleModels({ apiKey: params?.apiKey });
+  return {
+    baseUrl: MAPLE_DEFAULT_BASE_URL,
+    api: "openai-completions",
+    models,
+  };
+}
+
 async function buildOllamaProvider(): Promise<ProviderConfig> {
   const models = await discoverOllamaModels();
   return {
@@ -436,6 +446,13 @@ export async function resolveImplicitProviders(params: {
     resolveApiKeyFromProfiles({ provider: "venice", store: authStore });
   if (veniceKey) {
     providers.venice = { ...(await buildVeniceProvider()), apiKey: veniceKey };
+  }
+
+  const mapleKey =
+    resolveEnvApiKeyVarName("maple") ??
+    resolveApiKeyFromProfiles({ provider: "maple", store: authStore });
+  if (mapleKey) {
+    providers.maple = { ...(await buildMapleProvider({ apiKey: mapleKey })), apiKey: mapleKey };
   }
 
   const qwenProfiles = listProfilesForProvider(authStore, "qwen-portal");
